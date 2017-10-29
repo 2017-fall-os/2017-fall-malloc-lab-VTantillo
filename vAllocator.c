@@ -69,6 +69,7 @@ BlockPrefix_t *makeFreeBlock(void *addr, size_t size) {
 
 /* lowest & highest address in arena (global vars) */
 BlockPrefix_t *arenaBegin = (void *)0;
+BlockPrefix_t* nextRegion = (void*) 0;
 void *arenaEnd = 0;
 
 void initializeArena() {
@@ -227,15 +228,11 @@ void *prefixToRegion(BlockPrefix_t *p) {
     }
 }
 
-BlockPrefix_t* nextRegion;
 
-BlockPrefix_t* findNextFit(size_t s) {
-    BlockPrefix_t* last = nextRegion;
+findNextFit(size_t s) {
+    BlockPrefix_t last = nextRegion;
     nextRegion = getNextPrefix(nextRegion);
     while (nextRegion != last) {
-        if (nextRegion == 0) { // at arena end go back to the beginning
-            nextRegion = arenaBegin;
-        }
         if (!nextRegion->allocated && computeUsableSpace(nextRegion) >= s) {
             return nextRegion;
         }
@@ -244,9 +241,6 @@ BlockPrefix_t* findNextFit(size_t s) {
     return growArena(s);
 }
 
-/*  Implemented next fit by creating a new pointer that keeps track of the last
- *  place it checked and begins from there.
- */
 void* nextFitAllocRegion(size_t s) {
     size_t asize = align8(s);
     BlockPrefix_t *p;
@@ -254,8 +248,7 @@ void* nextFitAllocRegion(size_t s) {
         initializeArena();
         nextRegion = arenaBegin;
     }
-
-    p = findNextFit(s);		// find a block
+    p = findFirstFit(s);		// find a block
     if (p) {			// found a block
         size_t availSize = computeUsableSpace(p);
         /* split block? */
@@ -324,8 +317,8 @@ void *resizeRegion(void *r, size_t newSize) {
     int nextSize;
     int spaceCheck;
 
-    BlockPrefix_t* currBlock = regionToPrefix(r);
-    BlockPrefix_t* nextBlock = getNextPrefix(regionToPrefix(r));
+    BlockPrefix_t currBlock = regionToPrefix(r);
+    BlockPrefix_t nextBlock = getNextPrefix(regionToPrefix(r));
 
     nextSize = computeUsableSpace(nextBlock);
 
